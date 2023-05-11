@@ -22,7 +22,7 @@ from numbers import Integral, Number
 import numpy
 from numpy import asarray
 
-from gem.node import Node as NodeBase
+from gem.node import Node as NodeBase, traversal
 
 
 __all__ = ['Node', 'Identity', 'Literal', 'Zero', 'Failure',
@@ -33,7 +33,7 @@ __all__ = ['Node', 'Identity', 'Literal', 'Zero', 'Failure',
            'IndexSum', 'ListTensor', 'Concatenate', 'Delta',
            'index_sum', 'partial_indexed', 'reshape', 'view',
            'indices', 'as_gem', 'FlexiblyIndexed',
-           'Inverse', 'Solve']
+           'Inverse', 'Solve', 'extract_type']
 
 
 class NodeMeta(type):
@@ -211,11 +211,7 @@ class Literal(Constant):
 
     def __new__(cls, array):
         array = asarray(array)
-        if (array == 0).all():
-            # All zeros, make symbolic zero
-            return Zero(array.shape)
-        else:
-            return super(Literal, cls).__new__(cls)
+        return super(Literal, cls).__new__(cls)
 
     def __init__(self, array):
         array = asarray(array)
@@ -548,6 +544,8 @@ class Indexed(Scalar):
             assert isinstance(index, IndexBase)
             if isinstance(index, Index):
                 index.set_extent(extent)
+            elif isinstance(index, int) and not (0 <= index < extent):
+                raise IndexError("Invalid literal index")
 
         # Empty multiindex
         if not multiindex:
@@ -1041,3 +1039,8 @@ def as_gem(expr):
         return Literal(expr)
     else:
         raise ValueError("Do not know how to convert %r to GEM" % expr)
+
+
+def extract_type(expressions, klass):
+    """Collects objects of type klass in expressions."""
+    return tuple(node for node in traversal(expressions) if isinstance(node, klass))
